@@ -18,82 +18,69 @@
   let logoSrc = '/ChatGPT-Logo.png'; // Default logo
   let logoInterval;
 
-  async function sendPrompt() {
-    if (!prompt.trim()) {
-      alert('Please enter a prompt.');
-      return;
-    }
-
-    loading = true;
-    error = '';
-
-    // Add user prompt to chat history
-    const userMessage = { role: 'user', content: prompt };
-    chatHistory = [...chatHistory, userMessage].slice(-6); // Keep only the last 6 messages
-
-    try {
-      const res = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${OPENAI_API_KEY}`
-        },
-        body: JSON.stringify({
-          model: "gpt-4", // Ensure you're using the correct model name
-          messages: chatHistory,
-          temperature: 0.7
-        })
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error?.message || `Error: ${res.status} ${res.statusText}`);
-      }
-
-      const data = await res.json();
-      const assistantMessage = data.choices[0].message.content;
-
-      // Add assistant response to chat history
-      chatHistory = [...chatHistory, { role: 'assistant', content: assistantMessage }].slice(-6);
-      prompt = ''; // Clear the prompt after sending
-    } catch (err) {
-      console.error(err);
-      error = err.message;
-    } finally {
-      loading = false;
-    }
+ async function sendPrompt() {
+  if (!prompt.trim()) {
+    console.log('Debug: No prompt entered.');
+    alert('Please enter a prompt.');
+    return;
   }
 
-  // Auto-scroll to the latest message when chatHistory updates
-  afterUpdate(() => {
-    if (chatContainer) {
-      chatContainer.scrollTop = chatContainer.scrollHeight;
-    }
-  });
+  console.log('Debug: Prompt entered:', prompt);
+  loading = true;
+  error = '';
 
-  // Logo Animation Logic
-  $: if (loading) {
-    // Start the animation
-    if (!logoInterval) {
-      logoInterval = setInterval(() => {
-        logoSrc = logoSrc === '/ChatGPT-Logo.png' ? '/ChatGPT-Logo-open.png' : '/ChatGPT-Logo.png';
-      }, 100); // 100ms interval
-    }
-  } else {
-    // Stop the animation and reset to default logo
-    if (logoInterval) {
-      clearInterval(logoInterval);
-      logoInterval = null;
-      logoSrc = '/ChatGPT-Logo.png';
-    }
-  }
+  // Add user prompt to chat history
+  const userMessage = { role: 'user', content: prompt };
+  chatHistory = [...chatHistory, userMessage].slice(-6); // Keep only the last 6 messages
+  console.log('Debug: Updated chat history with user message:', chatHistory);
 
-  // Ensure the interval is cleared if the component is destroyed
-  onDestroy(() => {
-    if (logoInterval) {
-      clearInterval(logoInterval);
+  try {
+    console.log('Debug: Sending request to OpenAI API...');
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "gpt-4",
+        messages: chatHistory,
+        temperature: 0.7
+      })
+    });
+
+    console.log('Debug: Response received:', res);
+    if (!res.ok) {
+      const errorData = await res.json();
+      console.error('Error response from OpenAI API:', errorData);
+      throw new Error(errorData.error?.message || `Error: ${res.status} ${res.statusText}`);
     }
-  });
+
+    const data = await res.json();
+    console.log('Debug: Parsed response data:', data);
+
+    const assistantMessage = data.choices[0].message.content;
+    console.log('Debug: Assistant response:', assistantMessage);
+
+    // Display the response word by word
+    let displayedMessage = '';
+    const words = assistantMessage.split(' ');
+    for (const word of words) {
+      displayedMessage += (displayedMessage ? ' ' : '') + word;
+      chatHistory = [
+        ...chatHistory.filter((msg) => msg.role !== 'assistant'),
+        { role: 'assistant', content: displayedMessage }
+      ].slice(-6);
+      console.log('Debug: Updated chat history with assistant message:', displayedMessage);
+
+      await new Promise((resolve) => setTimeout(resolve, 100)); // Delay in ms
+    }
+
+    prompt = ''; // Clear the prompt after sending
+    console.log('Debug: Prompt cleared.');
+  } catch (err) {
+  
+
 </script>
 
 <main class="flex flex-col h-screen bg-gray-900 text-white">
